@@ -8,7 +8,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     const q = query(collection(db, 'wasteLogs'), orderBy('timestamp', 'desc'));
-    
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedLogs = [];
       const newTotals = { Plastic: 0, 'E-Waste': 0, Organic: 0, Other: 0 };
@@ -61,19 +61,19 @@ export default function Dashboard() {
             // NO ENTRIES COMMITTED TO CURRENT LEDGER //
           </div>
         ) : (
-          <div className="space-y-4 max-h-[550px] overflow-y-auto pr-2">
+          <div className="space-y-4 max-h-[550px] overflow-y-auto overflow-x-visible pr-2 pt-3 -mt-1">
             {logs.map((log) => (
               <div key={log.id} className="flex flex-col sm:flex-row gap-4 p-4 bg-[#15140f] border-2 border-[#2e2c22] relative items-start sm:items-center">
-                
+
                 {/* Visual Evidence Field Box */}
                 {log.photoUrl && (
-                  <img 
-                    src={log.photoUrl} 
-                    alt={log.category} 
+                  <img
+                    src={log.photoUrl}
+                    alt={log.category}
                     className="w-20 h-20 object-cover border-2 border-[#8a8a85] bg-[#1c1b15] filter grayscale contrast-125 rounded-none"
                   />
                 )}
-                
+
                 {/* Ledger Item Details */}
                 <div className="flex-1 min-w-0 w-full">
                   <div className="flex justify-between items-baseline mb-1">
