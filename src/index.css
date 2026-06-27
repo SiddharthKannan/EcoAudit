@@ -1,2 +1,20 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap');
 
+/* Apply JetBrains Mono globally to all elements */
+* {
+  font-family: 'JetBrains Mono', monospace !important;
+  box-sizing: border-box;
+}
+
+/* Base scrollbar styling to fit the dark logbook theme */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #15140f;
+  border-left: 2px solid #2e2c22;
+}
+::-webkit-scrollbar-thumb {
+  background: #FAC775;
+}

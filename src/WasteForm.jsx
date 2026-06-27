@@ -3,7 +3,6 @@ import { db, storage } from './firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
-// Get or create a persistent session ID for the user
 const getSessionId = () => {
   let id = localStorage.getItem('ecoaudit_session_id');
   if (!id) {
@@ -32,7 +31,6 @@ export default function WasteForm() {
     setGeoError(null);
     setSuccess(false);
 
-    // 1. Get Geolocation
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
@@ -40,8 +38,7 @@ export default function WasteForm() {
       },
       async (error) => {
         console.error("Location permission denied or error:", error);
-        setGeoError("Location access denied. Saving log without GPS coordinates.");
-        // Proceeding with null coordinates as fallback so app doesn't crash
+        setGeoError("CRITICAL: GPS ACCESS DENIED. RECORDING WITHOUT COORDINATES.");
         await proceedWithUpload(null, null);
       }
     );
@@ -49,7 +46,6 @@ export default function WasteForm() {
 
   const proceedWithUpload = async (lat, lng) => {
     try {
-      // 2. Upload Photo to Firebase Storage (only if one was provided)
       let photoUrl = null;
       if (photo) {
         const storageRef = ref(storage, `waste_photos/${Date.now()}_${photo.name}`);
@@ -57,7 +53,6 @@ export default function WasteForm() {
         photoUrl = await getDownloadURL(uploadResult.ref);
       }
 
-      // 3. Save Record to Firestore
       await addDoc(collection(db, 'wasteLogs'), {
         category,
         weightKg: parseFloat(weight),
@@ -68,7 +63,6 @@ export default function WasteForm() {
         sessionId: getSessionId()
       });
 
-      // Reset form on success
       setWeight('');
       setPhoto(null);
       setSuccess(true);
@@ -82,65 +76,83 @@ export default function WasteForm() {
   };
 
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-100">
-      <h2 className="text-xl font-bold text-gray-800 mb-4">Log Waste Item</h2>
+    <div className="bg-[#1c1b15] p-6 border-2 border-[#FAC775] relative">
+      {/* Decorative Corner Marker to mimic tactical logs */}
+      <div className="absolute top-0 right-0 w-3 h-3 bg-[#FAC775]"></div>
+
+      <h2 className="text-lg font-black uppercase tracking-widest text-[#FAC775] mb-6 flex items-center justify-between border-b-2 border-[#2e2c22] pb-3">
+        <span>[01] ENTRY_RECORD</span>
+        <span className="text-xs text-[#8a8a85]">METRIC: KG</span>
+      </h2>
 
       {success && (
-        <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-lg text-sm font-medium">
-          ✓ Logged successfully!
+        <div className="mb-6 p-4 bg-[#15140f] border-2 border-[#FAC775] text-[#FAC775] text-xs font-bold uppercase tracking-wider">
+          &gt;&gt; SUCCESS: DATA_STREAM_COMMITTED
         </div>
       )}
 
       {geoError && (
-        <div className="mb-4 p-3 bg-amber-50 text-amber-700 rounded-lg text-sm border border-amber-200">
-          ⚠️ {geoError}
+        <div className="mb-6 p-4 bg-[#15140f] border-2 border-[#D85A30] text-[#D85A30] text-xs font-bold uppercase tracking-wider">
+          ⚠️ WARNING: {geoError}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label className="block text-sm font-semibold text-gray-600 mb-1">Category</label>
+          <label className="block text-xs font-bold uppercase tracking-widest text-[#8a8a85] mb-2">
+            SELECT_MATERIAL_TYPE
+          </label>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+            className="w-full p-3 bg-[#15140f] border-2 border-[#8a8a85] text-[#e8e4d8] focus:border-[#FAC775] outline-none text-sm rounded-none appearance-none cursor-pointer"
+            style={{ backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%23FAC775'><polygon points='0,0 10,0 5,7'/></svg>")`, backgroundPosition: 'right 15px center', backgroundRepeat: 'no-repeat' }}
           >
-            <option value="Plastic">Plastic</option>
-            <option value="E-Waste">E-Waste</option>
-            <option value="Organic">Organic</option>
-            <option value="Other">Other</option>
+            <option value="Plastic">PLASTIC</option>
+            <option value="E-Waste">E-WASTE</option>
+            <option value="Organic">ORGANIC</option>
+            <option value="Other">OTHER_WASTE</option>
           </select>
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-600 mb-1">Weight (kg)</label>
+          <label className="block text-xs font-bold uppercase tracking-widest text-[#8a8a85] mb-2">
+            NET_MASS_QUANTITY (KG)
+          </label>
           <input
             type="number"
             step="0.01"
             value={weight}
             onChange={(e) => setWeight(e.target.value)}
-            placeholder="e.g. 2.5"
-            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+            placeholder="0.00"
+            className="w-full p-3 bg-[#15140f] border-2 border-[#8a8a85] text-[#e8e4d8] focus:border-[#FAC775] placeholder-[#545450] outline-none text-sm rounded-none"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-600 mb-1">Upload Photo</label>
-          <input
-            id="photo-input"
-            type="file"
-            accept="image/*"
-            onChange={(e) => setPhoto(e.target.files[0])}
-            className="w-full p-2 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
-          />
+          <label className="block text-xs font-bold uppercase tracking-widest text-[#8a8a85] mb-2">
+            VISUAL_EVIDENCE_ATTACHMENT (OPTIONAL)
+          </label>
+          <div className="relative border-2 border-dashed border-[#8a8a85] p-4 bg-[#15140f] text-center">
+            <input
+              id="photo-input"
+              type="file"
+              accept="image/*"
+              onChange={(e) => setPhoto(e.target.files[0])}
+              className="w-full text-xs text-[#8a8a85] file:hidden cursor-pointer"
+            />
+            <span className="text-[11px] font-bold text-[#FAC775] uppercase tracking-wider block mt-1">
+              {photo ? `FILE: ${photo.name.toUpperCase()}` : "SELECT IMAGE FILE // [BROWSE]"}
+            </span>
+          </div>
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-4 rounded-lg transition dynamic disabled:opacity-50"
+          className="w-full bg-[#FAC775] text-[#15140f] font-black text-xs uppercase tracking-widest py-4 px-4 transition-colors hover:bg-white disabled:opacity-30 border-2 border-[#FAC775] rounded-none"
         >
-          {loading ? 'Submitting...' : 'Submit Log'}
+          {loading ? 'COMMIT_IN_PROGRESS...' : '✓ RECORD_TO_LOGBOOK'}
         </button>
       </form>
     </div>
