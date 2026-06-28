@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { db, storage } from './firebase';
+import { db } from './firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+
+const VALID_CATEGORIES = ['Plastic', 'E-Waste', 'Organic', 'Other'];
+const MAX_PHOTO_SIZE_MB = 5;
 
 const getSessionId = () => {
   let id = localStorage.getItem('ecoaudit_session_id');
@@ -20,10 +22,7 @@ export default function WasteForm() {
   const [geoError, setGeoError] = useState(null);
   const [success, setSuccess] = useState(false);
 
-  const VALID_CATEGORIES = ['Plastic', 'E-Waste', 'Organic', 'Other'];
-const MAX_PHOTO_SIZE_MB = 5;
-
-const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     const parsedWeight = parseFloat(weight);
@@ -49,31 +48,27 @@ const handleSubmit = async (e) => {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
-        await proceedWithUpload(latitude, longitude);
+        await proceedWithSubmit(latitude, longitude);
       },
       async (error) => {
         console.error("Location permission denied or error:", error);
         setGeoError("CRITICAL: GPS ACCESS DENIED. RECORDING WITHOUT COORDINATES.");
-        await proceedWithUpload(null, null);
+        await proceedWithSubmit(null, null);
       }
     );
   };
 
-  const proceedWithUpload = async (lat, lng) => {
+  const proceedWithSubmit = async (lat, lng) => {
     try {
-      let photoUrl = null;
-      if (photo) {
-        const storageRef = ref(storage, `waste_photos/${Date.now()}_${photo.name}`);
-        const uploadResult = await uploadBytes(storageRef, photo);
-        photoUrl = await getDownloadURL(uploadResult.ref);
-      }
-
+      // NOTE: Photo is not uploaded to Storage — Firebase Storage requires
+      // the Blaze plan, which this project is not on. Photo selection is
+      // currently cosmetic only and does not get saved or persisted.
       await addDoc(collection(db, 'wasteLogs'), {
         category,
         weightKg: parseFloat(weight),
         latitude: lat,
         longitude: lng,
-        photoUrl,
+        photoUrl: null,
         timestamp: serverTimestamp(),
         sessionId: getSessionId()
       });
@@ -92,7 +87,6 @@ const handleSubmit = async (e) => {
 
   return (
     <div className="bg-[#1c1b15] p-6 border-2 border-[#FAC775] relative">
-      {/* Decorative Corner Marker to mimic tactical logs */}
       <div className="absolute top-0 right-0 w-3 h-3 bg-[#FAC775]"></div>
 
       <h2 className="text-lg font-black uppercase tracking-widest text-[#FAC775] mb-6 flex items-center justify-between border-b-2 border-[#2e2c22] pb-3">
@@ -160,6 +154,9 @@ const handleSubmit = async (e) => {
               {photo ? `FILE: ${photo.name.toUpperCase()}` : "SELECT IMAGE FILE // [BROWSE]"}
             </span>
           </div>
+          <p className="text-[10px] text-[#8a8a85] mt-2 leading-relaxed">
+            NOTE: Photo attachment is cosmetic only and not stored — requires Firebase Storage (Blaze plan upgrade) to persist.
+          </p>
         </div>
 
         <button
