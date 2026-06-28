@@ -1,43 +1,43 @@
-EcoAudit 🌍
+EcoAudit
 
-An application for communities to log waste, but not just where you say you are, cross checking what you say you're disposing of. Designed for the recruitment task of the VITC Projects Department of CodeChef.
+An application that allows for disposal logging in a community - not only to place where you say you are, but to see where you say you're throwing your trash. This is a development of the CodeChef VITC Projects Department recruitment task.
 
 Live app: https://ecoaudit-cc9c1.web.app
 
 What it does
 
-Unlike the manual location field, EcoAudit automatically validates waste disposal entries based on the user's location data provided by the browser's built-in Geolocation API, and lets anyone enter a waste disposal entry (category, weight, optionally a picture). Each log is updated in real-time on a live dashboard, showing live totals for each category, with a live audit feed of all logs.
+EcoAudit allows anybody to enter a waste disposal record – what it is, how much it weighs and take a picture – and automatically validates it based on the native Geolocation API that powers the browser instead of an application-specific location field. Each log will populate a live dashboard providing real time numbers per category and a real time audit stream of each log entry.
 
-The difference: AI guided categorization. If the photo is attached, Gemini's vision API analyses it and verifies it with the category the user declared. Also, a mismatch appears on the dashboard instead of being trusted silently, bringing anti-fraud from the buzz to the app.
+The key differentiator – AI verified categorization. If there is a photo attached, Gemini's vision API identifies the waste in the photo and compares it to the category user declared. When a mismatch occurs, it's reported on the dashboard as AI_FLAGGED and not silently assumed — making anti-fraud a buzzword in the short-term and a feature in the app in the long run.
 
 Tech stack
 
 
-Backend: Express, Handlebars, and Python (Flask)
-You can use real-time listeners to update the Firestore database without any manual intervention.Using real-time listeners you can update the Firestore database without having to do anything manually.
-Storage: Firebase Storage
-The AI classification is done with the Gemini API (multimodal vision).
-Geolocation: Browser native Geolocation API (GPS).Geolocation: Browser native Geolocation API (GPS).
+Backend: NextJS (Next Auth)
+Store data: Firebase Firestore (No manual refresh required, real time listeners)
+Keep the API Key in the back-end, don't expose in frontend code — AI classification: Gemini API (gemini-2.5-flash, multimodal vision), via small serverless function on Vercel.
+Geolocation: Browser built-in Geolocation API
 Hosting: Firebase Hosting
 
 
 How it works
 
 
-User completes the waste-logging form (category, weight, and optionally a photo)
-When submitted, browser's Geolocation API gets the actual latitude/longitude (no manual text entry). If access to the location is denied, then the log is saved without an error, and provides a fallback to "no GPS data available"
-If there is a picture attached, it is stored in Firebase Storage, and Gemini Vision identifies the type of waste in the image.
-The category asserted and the category predicted by the AI are compared, the outcome (verified / unverified) is recorded together with the log
-The dashboard is real-time active listener that will update totals and the audit feed as soon as Firestore updates it — no refresh needed.
+User completes Waste Logging Form: Category, Weight and picture.
+No manual text entry is possible, when submitted the browser's Geolocation API picks up real latitude/longitude. In the case of being unable to access the location, the log still saves as "no GPS data available" rather than failing.
+The image is encoded in the browser then directly transmitted to a serverless function (/api/classify), which is automatically forwarded to Gemini Vision together with the four valid waste categories.
+The function passes the predicted category back to the app; this is returned by Gemini.
+The application compares the category declared by the user with the predicted category by Gemini and saves the result – match or mismatch – as isVerified: true/false, along with the log in Firestore.
+The dashboard is listening to Firestore in real time, so totals and the audit feed always update as they change, no refresh needed. All entries have a VERIFIED_GPS/NO_GPS stamp, and if a photo was submitted an AI_MATCH/AI_FLAGGED stamp.
 
 
 Run it locally
 
-bashgit clone https://github.com/<your-username>/ecoaudit.git
+bashgit clone https://github.com/SiddharthKannan/ecoaudit.git
 cd ecoaudit
 npm install
 
-Create a .env file in the root with your own Firebase and Gemini credentials:
+Make a .env file in the root with your own Firebase credentials:
 
 VITE_FIREBASE_API_KEY=your_key_here
 VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
@@ -45,33 +45,43 @@ VITE_FIREBASE_PROJECT_ID=your_project_id
 VITE_FIREBASE_STORAGE_BUCKET=your_project.firebasestorage.app
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_id
 VITE_FIREBASE_APP_ID=your_app_id
-GEMINI_API_KEY=your_gemini_key
 
 Then run:
 
 bashnpm run dev
 
-The app will be accessible over the web at http://localhost:5173.
+The app will be accessible through the URL: http://localhost:5173.
+
+Note about the AI-verification function: This funciton is deployed separately on Vercel, and the GEMINI_API_KEY is in the Vercel environment variables (not this repo). If you wish to run that piece yourself, deploy the function in functions/classify-service (see comments in the folder) to Vercel using your own Gemini key.
 
 Project structure
 
 ecoaudit/
 ├── src/
-│   ├── App.jsx           # Main layout
-│   ├── wasteformss.js      # Functions for the "wasteform" objects
-│   │   └── Dashboard.jsx      # Live totals + audit feed via Firestore onSnapshot
-│   └── package.json                    # Project's package details and installation instructions
-├── functions/              # Cloud Function for Gemini Vision classification
+│   ├── App.jsx           # Main layout, file-tab navigation
+│   |   ├── AddWaste.jsx      # Add waste form: category, weight, photo, geolocation, AI verification call
+│   ├── Dashboard.jsx      # Live totals + audit feed onSnapshot Firestore
+│   └── functions.js        # Functions for handling cloud functions in the app
 ├── public/
 └── package.json
+
+Design
+
+The design of the visual direction is not the standard eco-app look. The design of Eco Audit is a rugged field manual / research logbook: monospace typography everywhere, sharp corners with heavy 2px borders, a file-tab navigation bar, and rotated rubber-stamp markers for the verification status (rather than colored badge pills). It is a tone intended to be precise or audited, so use onyx or amber instead of green.
 
 Bonus features implemented
 
 
-✅ Graceful handling of location permissions denied (log still saves, and is clearly marked)
-Accurately classified categories, verified by AI.AI verified category classification.
-⬜ Heat mapping (not implemented)
+Logs are saved in a graceful way if location permission is denied (no crash, log file is marked as such)
+Verify categories with AI using Gemini Vision.AI verified category classification with Gemini Vision.
+ Map visualization (not implemented)
+
+
+Known limitations
+
+
+Photos are processed in-memory for AI classification, and not persisted to storage — Firebase storage now requires a paid (Blaze) plan, which wasn't feasible for the timeframe of this project. The result of the verification is stored and the image is not.
 
 
 
-It was created by Siddharth Kannan as a part of the recruitment drive of VITC Projects Department at CodeChef.
+Created by Siddharth Kannan for the recruitment process of VITC Projects Department at CodeChef.
