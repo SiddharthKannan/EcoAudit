@@ -4,6 +4,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const VALID_CATEGORIES = ['Plastic', 'E-Waste', 'Organic', 'Other'];
 const MAX_PHOTO_SIZE_MB = 5;
+const CLASSIFY_URL = 'https://ecoaudit-classify.vercel.app/api/classify';
 
 const getSessionId = () => {
   let id = localStorage.getItem('ecoaudit_session_id');
@@ -13,6 +14,14 @@ const getSessionId = () => {
   }
   return id;
 };
+
+const fileToBase64 = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 
 export default function WasteForm() {
   const [category, setCategory] = useState('Plastic');
@@ -30,12 +39,10 @@ export default function WasteForm() {
       alert('Please enter a valid weight between 0 and 1000 kg.');
       return;
     }
-
     if (!VALID_CATEGORIES.includes(category)) {
       alert('Invalid category selected.');
       return;
     }
-
     if (photo && photo.size > MAX_PHOTO_SIZE_MB * 1024 * 1024) {
       alert(`Photo must be smaller than ${MAX_PHOTO_SIZE_MB}MB.`);
       return;
@@ -47,11 +54,9 @@ export default function WasteForm() {
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        const { latitude, longitude } = position.coords;
-        await proceedWithSubmit(latitude, longitude);
+        await proceedWithSubmit(position.coords.latitude, position.coords.longitude);
       },
-      async (error) => {
-        console.error("Location permission denied or error:", error);
+      async () => {
         setGeoError("CRITICAL: GPS ACCESS DENIED. RECORDING WITHOUT COORDINATES.");
         await proceedWithSubmit(null, null);
       }
@@ -59,16 +64,32 @@ export default function WasteForm() {
   };
 
   const proceedWithSubmit = async (lat, lng) => {
+    let predictedCategory = null;
+    let isVerified = null;
+
     try {
-      // NOTE: Photo is not uploaded to Storage — Firebase Storage requires
-      // the Blaze plan, which this project is not on. Photo selection is
-      // currently cosmetic only and does not get saved or persisted.
+      if (photo) {
+        const base64 = await fileToBase64(photo);
+        const res = await fetch(CLASSIFY_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64: base64, mimeType: photo.type })
+        });
+        const data = await res.json();
+        if (data.predictedCategory) {
+          predictedCategory = data.predictedCategory;
+          isVerified = predictedCategory === category;
+        }
+      }
+
       await addDoc(collection(db, 'wasteLogs'), {
         category,
         weightKg: parseFloat(weight),
         latitude: lat,
         longitude: lng,
         photoUrl: null,
+        predictedCategory,
+        isVerified,
         timestamp: serverTimestamp(),
         sessionId: getSessionId()
       });
@@ -79,7 +100,7 @@ export default function WasteForm() {
       document.getElementById('photo-input').value = '';
     } catch (err) {
       console.error("Error submitting log:", err);
-      alert("Failed to submit log. Check your Firebase security rules.");
+      alert("Failed to submit log.");
     } finally {
       setLoading(false);
     }
@@ -88,7 +109,6 @@ export default function WasteForm() {
   return (
     <div className="bg-[#1c1b15] p-6 border-2 border-[#FAC775] relative">
       <div className="absolute top-0 right-0 w-3 h-3 bg-[#FAC775]"></div>
-
       <h2 className="text-lg font-black uppercase tracking-widest text-[#FAC775] mb-6 flex items-center justify-between border-b-2 border-[#2e2c22] pb-3">
         <span>[01] ENTRY_RECORD</span>
         <span className="text-xs text-[#8a8a85]">METRIC: KG</span>
@@ -99,7 +119,6 @@ export default function WasteForm() {
           &gt;&gt; SUCCESS: DATA_STREAM_COMMITTED
         </div>
       )}
-
       {geoError && (
         <div className="mb-6 p-4 bg-[#15140f] border-2 border-[#D85A30] text-[#D85A30] text-xs font-bold uppercase tracking-wider">
           ⚠️ WARNING: {geoError}
@@ -108,9 +127,7 @@ export default function WasteForm() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label className="block text-xs font-bold uppercase tracking-widest text-[#8a8a85] mb-2">
-            SELECT_MATERIAL_TYPE
-          </label>
+          <label className="block text-xs font-bold uppercase tracking-widest text-[#8a8a85] mb-2">SELECT_MATERIAL_TYPE</label>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
@@ -125,13 +142,9 @@ export default function WasteForm() {
         </div>
 
         <div>
-          <label className="block text-xs font-bold uppercase tracking-widest text-[#8a8a85] mb-2">
-            NET_MASS_QUANTITY (KG)
-          </label>
+          <label className="block text-xs font-bold uppercase tracking-widest text-[#8a8a85] mb-2">NET_MASS_QUANTITY (KG)</label>
           <input
-            type="number"
-            step="0.01"
-            value={weight}
+            type="number" step="0.01" value={weight}
             onChange={(e) => setWeight(e.target.value)}
             placeholder="0.00"
             className="w-full p-3 bg-[#15140f] border-2 border-[#8a8a85] text-[#e8e4d8] focus:border-[#FAC775] placeholder-[#545450] outline-none text-sm rounded-none"
@@ -139,14 +152,10 @@ export default function WasteForm() {
         </div>
 
         <div>
-          <label className="block text-xs font-bold uppercase tracking-widest text-[#8a8a85] mb-2">
-            VISUAL_EVIDENCE_ATTACHMENT (OPTIONAL)
-          </label>
+          <label className="block text-xs font-bold uppercase tracking-widest text-[#8a8a85] mb-2">VISUAL_EVIDENCE_ATTACHMENT (AI VERIFIED)</label>
           <div className="relative border-2 border-dashed border-[#8a8a85] p-4 bg-[#15140f] text-center">
             <input
-              id="photo-input"
-              type="file"
-              accept="image/*"
+              id="photo-input" type="file" accept="image/*"
               onChange={(e) => setPhoto(e.target.files[0])}
               className="w-full text-xs text-[#8a8a85] file:hidden cursor-pointer"
             />
@@ -154,17 +163,13 @@ export default function WasteForm() {
               {photo ? `FILE: ${photo.name.toUpperCase()}` : "SELECT IMAGE FILE // [BROWSE]"}
             </span>
           </div>
-          <p className="text-[10px] text-[#8a8a85] mt-2 leading-relaxed">
-            NOTE: Photo attachment is cosmetic only and not stored — requires Firebase Storage (Blaze plan upgrade) to persist.
-          </p>
         </div>
 
         <button
-          type="submit"
-          disabled={loading}
+          type="submit" disabled={loading}
           className="w-full bg-[#FAC775] text-[#15140f] font-black text-xs uppercase tracking-widest py-4 px-4 transition-colors hover:bg-white disabled:opacity-30 border-2 border-[#FAC775] rounded-none"
         >
-          {loading ? 'COMMIT_IN_PROGRESS...' : '✓ RECORD_TO_LOGBOOK'}
+          {loading ? 'VERIFYING_&_COMMITTING...' : '✓ RECORD_TO_LOGBOOK'}
         </button>
       </form>
     </div>

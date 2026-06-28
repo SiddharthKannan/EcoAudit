@@ -92,15 +92,26 @@ export default function Dashboard() {
                   </p>
                 </div>
 
-                {/* Rotated Field-Rubber Stamp Custom Accent */}
-                <div className="sm:ml-4 flex items-center self-end sm:self-center pt-2 sm:pt-0">
+                {/* Stamps: GPS + AI Verification */}
+                <div className="sm:ml-4 flex flex-col gap-2 items-end self-end sm:self-center pt-2 sm:pt-0">
                   {log.latitude && log.longitude ? (
                     <div className="border-2 border-[#FAC775] text-[#FAC775] text-[10px] font-black tracking-widest uppercase px-2 py-1 rotate-[-8deg] pointer-events-none whitespace-nowrap">
                       VERIFIED_GPS
                     </div>
                   ) : (
                     <div className="border-2 border-[#D85A30] text-[#D85A30] text-[10px] font-black tracking-widest uppercase px-2 py-1 rotate-[-8deg] pointer-events-none whitespace-nowrap">
-                      UNVERIFIED
+                      NO_GPS
+                    </div>
+                  )}
+
+                  {log.isVerified === true && (
+                    <div className="border-2 border-[#FAC775] text-[#FAC775] text-[10px] font-black tracking-widest uppercase px-2 py-1 rotate-[-8deg] pointer-events-none whitespace-nowrap">
+                      AI_MATCH
+                    </div>
+                  )}
+                  {log.isVerified === false && (
+                    <div className="border-2 border-[#D85A30] text-[#D85A30] text-[10px] font-black tracking-widest uppercase px-2 py-1 rotate-[-8deg] pointer-events-none whitespace-nowrap">
+                      AI_FLAGGED
                     </div>
                   )}
                 </div>
