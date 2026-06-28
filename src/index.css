@@ -5,6 +5,7 @@
 * {
   font-family: 'JetBrains Mono', monospace !important;
   box-sizing: border-box;
+  line-height: 1.6;
 }
 
 /* Base scrollbar styling to fit the dark logbook theme */

@@ -20,10 +20,25 @@ export default function WasteForm() {
   const [geoError, setGeoError] = useState(null);
   const [success, setSuccess] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const VALID_CATEGORIES = ['Plastic', 'E-Waste', 'Organic', 'Other'];
+const MAX_PHOTO_SIZE_MB = 5;
+
+const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!weight) {
-      alert('Please enter a weight.');
+
+    const parsedWeight = parseFloat(weight);
+    if (!weight || isNaN(parsedWeight) || parsedWeight <= 0 || parsedWeight > 1000) {
+      alert('Please enter a valid weight between 0 and 1000 kg.');
+      return;
+    }
+
+    if (!VALID_CATEGORIES.includes(category)) {
+      alert('Invalid category selected.');
+      return;
+    }
+
+    if (photo && photo.size > MAX_PHOTO_SIZE_MB * 1024 * 1024) {
+      alert(`Photo must be smaller than ${MAX_PHOTO_SIZE_MB}MB.`);
       return;
     }
 
